@@ -46,7 +46,7 @@ namespace AppLauncher
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error saving apps: {ex.Message}");
+                System.Windows.Forms.MessageBox.Show($"Error saving apps: {ex.Message}");
             }
         }
 

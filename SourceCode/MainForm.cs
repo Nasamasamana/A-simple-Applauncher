@@ -49,7 +49,6 @@ namespace AppLauncher
                 BackColor = SystemColors.Control
             };
 
-            // Header with Settings button
             var headerPanel = new Panel
             {
                 Dock = DockStyle.Top,
@@ -67,7 +66,6 @@ namespace AppLauncher
             settingsButton.Click += SettingsButton_Click;
             headerPanel.Controls.Add(settingsButton);
 
-            // FlowLayoutPanel for apps
             flowPanel = new FlowLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -140,7 +138,6 @@ namespace AppLauncher
                 appControl.Controls.Add(iconBox);
                 appControl.Controls.Add(label);
 
-                // Double click to launch
                 iconBox.DoubleClick += (s, e) => LaunchApp(app);
                 label.DoubleClick += (s, e) => LaunchApp(app);
                 appControl.DoubleClick += (s, e) => LaunchApp(app);
@@ -153,8 +150,12 @@ namespace AppLauncher
         {
             try
             {
-                // Resolve shortcut targets without COM
-                string targetPath = ResolveLnkTarget(path);
+                string targetPath = path;
+                
+                if (Path.GetExtension(path).ToLower() == ".lnk")
+                {
+                    targetPath = ResolveLnkTarget(path);
+                }
 
                 var icon = Icon.ExtractAssociatedIcon(targetPath);
                 return icon?.ToBitmap() ?? CreateDefaultIcon();
@@ -165,35 +166,25 @@ namespace AppLauncher
             }
         }
 
-        private string ResolveLnkTarget(string path)
+        private string ResolveLnkTarget(string lnkPath)
         {
-            // Simple shortcut resolver without COM interop
-            if (Path.GetExtension(path).ToLower() != ".lnk")
-                return path;
-
             try
             {
-                // Read the .lnk file to extract the target
-                // LNK files have the target path embedded at a specific offset
-                using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+                using (var fs = new FileStream(lnkPath, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     byte[] buffer = new byte[fs.Length];
                     fs.Read(buffer, 0, buffer.Length);
 
-                    // The target path is typically after byte 76 in ASCII format
-                    // This is a simplified parser - good enough for most cases
                     string content = System.Text.Encoding.ASCII.GetString(buffer);
                     
-                    // Look for common executable extensions
                     foreach (var ext in new[] { ".exe", ".bat", ".cmd", ".com" })
                     {
                         int idx = content.IndexOf(ext, StringComparison.OrdinalIgnoreCase);
                         if (idx > 0)
                         {
-                            int start = Math.Max(0, idx - 260); // Max path length
+                            int start = Math.Max(0, idx - 260);
                             string substring = content.Substring(start, Math.Min(300, content.Length - start));
                             
-                            // Extract the path
                             int lastIdx = substring.LastIndexOf(ext, StringComparison.OrdinalIgnoreCase);
                             if (lastIdx > 0)
                             {
@@ -221,8 +212,7 @@ namespace AppLauncher
             }
             catch { }
 
-            // If extraction fails, just return the .lnk file itself
-            return path;
+            return lnkPath;
         }
 
         private Image CreateDefaultIcon()

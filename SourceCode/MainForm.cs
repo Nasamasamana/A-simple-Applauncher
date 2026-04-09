@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Windows.Forms;
-using IWshRuntimeLibrary;
 
 namespace AppLauncher
 {
@@ -153,22 +153,8 @@ namespace AppLauncher
         {
             try
             {
-                // Try to resolve shortcut targets
-                string targetPath = path;
-                if (System.IO.Path.GetExtension(path).ToLower() == ".lnk")
-                {
-                    try
-                    {
-                        var shell = new WshShellClass();
-                        var link = shell.CreateShortCut(path) as IWshShortCut;
-                        if (link != null)
-                            targetPath = link.TargetPath;
-                    }
-                    catch
-                    {
-                        targetPath = path;
-                    }
-                }
+                // Resolve shortcut targets without COM
+                string targetPath = ResolveLnkTarget(path);
 
                 var icon = Icon.ExtractAssociatedIcon(targetPath);
                 return icon?.ToBitmap() ?? CreateDefaultIcon();
@@ -177,6 +163,66 @@ namespace AppLauncher
             {
                 return CreateDefaultIcon();
             }
+        }
+
+        private string ResolveLnkTarget(string path)
+        {
+            // Simple shortcut resolver without COM interop
+            if (Path.GetExtension(path).ToLower() != ".lnk")
+                return path;
+
+            try
+            {
+                // Read the .lnk file to extract the target
+                // LNK files have the target path embedded at a specific offset
+                using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    byte[] buffer = new byte[fs.Length];
+                    fs.Read(buffer, 0, buffer.Length);
+
+                    // The target path is typically after byte 76 in ASCII format
+                    // This is a simplified parser - good enough for most cases
+                    string content = System.Text.Encoding.ASCII.GetString(buffer);
+                    
+                    // Look for common executable extensions
+                    foreach (var ext in new[] { ".exe", ".bat", ".cmd", ".com" })
+                    {
+                        int idx = content.IndexOf(ext, StringComparison.OrdinalIgnoreCase);
+                        if (idx > 0)
+                        {
+                            int start = Math.Max(0, idx - 260); // Max path length
+                            string substring = content.Substring(start, Math.Min(300, content.Length - start));
+                            
+                            // Extract the path
+                            int lastIdx = substring.LastIndexOf(ext, StringComparison.OrdinalIgnoreCase);
+                            if (lastIdx > 0)
+                            {
+                                int pathStart = 0;
+                                for (int i = lastIdx - 1; i >= 0; i--)
+                                {
+                                    if (substring[i] == '\0' || substring[i] == ':')
+                                    {
+                                        pathStart = (substring[i] == ':') ? i - 1 : i + 1;
+                                        while (pathStart < substring.Length && substring[pathStart] == '\0')
+                                            pathStart++;
+                                        break;
+                                    }
+                                }
+                                
+                                string extracted = substring.Substring(pathStart, lastIdx + ext.Length - pathStart);
+                                extracted = extracted.Trim('\0');
+                                
+                                if (File.Exists(extracted) && extracted.Contains(ext))
+                                    return extracted;
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            // If extraction fails, just return the .lnk file itself
+            return path;
         }
 
         private Image CreateDefaultIcon()

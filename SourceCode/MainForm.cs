@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Windows.Forms;
+using IWshRuntimeLibrary;
 
 namespace AppLauncher
 {
@@ -152,24 +153,44 @@ namespace AppLauncher
         {
             try
             {
+                // Try to resolve shortcut targets
+                string targetPath = path;
                 if (System.IO.Path.GetExtension(path).ToLower() == ".lnk")
                 {
-                    var shell = new IWshRuntimeLibrary.WshShellClass();
-                    var link = shell.CreateShortCut(path) as IWshRuntimeLibrary.IWshShortCut;
-                    if (link != null)
-                        path = link.TargetPath;
+                    try
+                    {
+                        var shell = new WshShellClass();
+                        var link = shell.CreateShortCut(path) as IWshShortCut;
+                        if (link != null)
+                            targetPath = link.TargetPath;
+                    }
+                    catch
+                    {
+                        targetPath = path;
+                    }
                 }
 
-                var icon = Icon.ExtractAssociatedIcon(path);
-                return icon?.ToBitmap() ?? new Bitmap(64, 64);
+                var icon = Icon.ExtractAssociatedIcon(targetPath);
+                return icon?.ToBitmap() ?? CreateDefaultIcon();
             }
             catch
             {
-                var bmp = new Bitmap(64, 64);
-                using (var g = Graphics.FromImage(bmp))
-                    g.Clear(Color.LightGray);
-                return bmp;
+                return CreateDefaultIcon();
             }
+        }
+
+        private Image CreateDefaultIcon()
+        {
+            var bmp = new Bitmap(64, 64);
+            using (var g = Graphics.FromImage(bmp))
+            {
+                g.Clear(Color.LightGray);
+                using (var brush = new SolidBrush(Color.DarkGray))
+                {
+                    g.DrawString("?", new Font("Arial", 32, FontStyle.Bold), brush, 15, 10);
+                }
+            }
+            return bmp;
         }
 
         private void LaunchApp(AppItem app)

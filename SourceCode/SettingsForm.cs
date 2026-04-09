@@ -1,4 +1,5 @@
 using System;
+using System.Drawing;
 using System.Windows.Forms;
 
 namespace AppLauncher
@@ -8,7 +9,10 @@ namespace AppLauncher
         private AppManager appManager;
         private MainForm parentForm;
         private ListBox appListBox;
-        private Button addButton, removeButton, renameButton, exitButton;
+        private Button addButton;
+        private Button removeButton;
+        private Button renameButton;
+        private Button exitButton;
 
         public SettingsForm(AppManager manager, MainForm parent)
         {
@@ -30,14 +34,14 @@ namespace AppLauncher
             var label = new Label
             {
                 Text = "Installed Apps:",
-                Location = new System.Drawing.Point(10, 10),
+                Location = new Point(10, 10),
                 AutoSize = true
             };
 
             appListBox = new ListBox
             {
-                Location = new System.Drawing.Point(10, 30),
-                Size = new System.Drawing.Size(360, 250),
+                Location = new Point(10, 30),
+                Size = new Size(360, 250),
                 SelectionMode = SelectionMode.One
             };
 
@@ -46,32 +50,32 @@ namespace AppLauncher
             addButton = new Button
             {
                 Text = "Add App",
-                Location = new System.Drawing.Point(10, 290),
-                Size = new System.Drawing.Size(80, 30)
+                Location = new Point(10, 290),
+                Size = new Size(80, 30)
             };
             addButton.Click += AddButton_Click;
 
             removeButton = new Button
             {
                 Text = "Remove",
-                Location = new System.Drawing.Point(100, 290),
-                Size = new System.Drawing.Size(80, 30)
+                Location = new Point(100, 290),
+                Size = new Size(80, 30)
             };
             removeButton.Click += RemoveButton_Click;
 
             renameButton = new Button
             {
                 Text = "Rename",
-                Location = new System.Drawing.Point(190, 290),
-                Size = new System.Drawing.Size(80, 30)
+                Location = new Point(190, 290),
+                Size = new Size(80, 30)
             };
             renameButton.Click += RenameButton_Click;
 
             exitButton = new Button
             {
                 Text = "Exit",
-                Location = new System.Drawing.Point(290, 290),
-                Size = new System.Drawing.Size(80, 30),
+                Location = new Point(290, 290),
+                Size = new Size(80, 30),
                 DialogResult = DialogResult.OK
             };
 
@@ -118,8 +122,11 @@ namespace AppLauncher
             }
 
             var appName = appListBox.SelectedItem.ToString();
-            appManager.RemoveApp(appName);
-            ReloadAppList();
+            if (!string.IsNullOrEmpty(appName))
+            {
+                appManager.RemoveApp(appName);
+                ReloadAppList();
+            }
         }
 
         private void RenameButton_Click(object sender, EventArgs e)
@@ -131,6 +138,9 @@ namespace AppLauncher
             }
 
             var oldName = appListBox.SelectedItem.ToString();
+            if (string.IsNullOrEmpty(oldName))
+                return;
+
             var newName = PromptForInput("Enter new name:", oldName);
 
             if (!string.IsNullOrEmpty(newName) && newName != oldName)
